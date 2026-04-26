@@ -3,8 +3,7 @@ services:
   chromadb:
     image: chromadb/chroma:latest
     container_name: dharma-chromadb
-    ports:
-      - '8000:8000'
+    # No host port — only reachable within the Docker network
     volumes:
       - chroma_data:/chroma/chroma
     environment:
@@ -16,6 +15,24 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  # ─── Node.js API ──────────────────────────────────────
+  app:
+    build:
+      context: .
+      target: production
+    container_name: dharma-app
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - CHROMA_HOST=chromadb   # Override .env — use Docker service name
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   chroma_data:
