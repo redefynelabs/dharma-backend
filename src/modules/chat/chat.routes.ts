@@ -116,7 +116,7 @@ router.post(
     // Parallelise: history fetch + chunk retrieval run simultaneously
     const [history, preloadedChunks] = await Promise.all([
       getSessionContextHistory(sessionId),
-      retrieveRelevantChunks(body.question, scripture ?? session.scripture, 6),
+      retrieveRelevantChunks(body.question, scripture ?? session.scripture, 4),
     ]);
 
     const result = await answerWithRAG(
@@ -138,7 +138,7 @@ router.post(
       result.sources,
       {
         tokensUsed: result.tokensUsed,
-        modelUsed: 'claude-sonnet-4-6',
+        modelUsed: 'claude-haiku-4-5-20251001',
         retrievedChunks: result.sources.length,
         processingMs: result.processingMs,
       }
@@ -205,7 +205,7 @@ router.post(
       // ── Phase 3: parallel retrieval + history (overlap with network RTT)
       const [history, preloadedChunks] = await Promise.all([
         getSessionContextHistory(sessionId),
-        retrieveRelevantChunks(body.question, scripture ?? session.scripture, 6),
+        retrieveRelevantChunks(body.question, scripture ?? session.scripture, 4),
       ]);
 
       // ── Phase 4: stream Claude response ────────────────────────────
@@ -229,7 +229,7 @@ router.post(
             result.sources,
             {
               tokensUsed: result.tokensUsed,
-              modelUsed: 'claude-sonnet-4-6',
+              modelUsed: 'claude-haiku-4-5-20251001',
               retrievedChunks: result.sources.length,
               processingMs: result.processingMs,
             }
@@ -240,17 +240,14 @@ router.post(
             logger.warn('commitQuota failed', { uid: req.user.uid, error: e })
           );
 
-          // For the first exchange, await title generation so the client
-          // receives the real title in the done event (no extra round-trip).
-          let generatedTitle: string | undefined;
+          // Fire-and-forget title generation — don't block the done event
           if (session.messageCount === 0) {
-            generatedTitle = await generateSessionTitle(body.question).catch(() => undefined);
-            if (generatedTitle) {
-              updateSessionTitle(sessionId, generatedTitle).catch(() => {});
-            }
+            generateSessionTitle(body.question)
+              .then((title) => updateSessionTitle(sessionId, title))
+              .catch(() => {});
           }
 
-          writeEvent({ type: 'done', message: assistantMessage, sources: result.sources, title: generatedTitle });
+          writeEvent({ type: 'done', message: assistantMessage, sources: result.sources });
           res.end();
         },
         preloadedChunks
@@ -275,9 +272,7 @@ router.post(
   authHandler(async (req: AuthenticatedRequest, res: Response) => {
     const body = askSchema.parse(req.body);
 
-    const [preloadedChunks] = await Promise.all([
-      retrieveRelevantChunks(body.question, body.scripture, 6),
-    ]);
+    const preloadedChunks = await retrieveRelevantChunks(body.question, body.scripture, 4);
 
     const result = await answerWithRAG(
       {

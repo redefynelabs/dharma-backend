@@ -4,7 +4,7 @@ import { getFirestore, COLLECTIONS } from '../../config/firebase';
 import { ChatSession, ChatMessage, ScriptureSource, Scripture, MessageRole } from '../../types';
 import { NotFoundError, ForbiddenError } from '../../utils/response';
 
-const MAX_HISTORY_FOR_CONTEXT = 10; // last N messages sent to LLM
+const MAX_HISTORY_FOR_CONTEXT = 6; // last N messages sent to LLM
 
 // Firestore batches are limited to 500 write operations.
 // Use 450 as a safe ceiling to leave headroom.

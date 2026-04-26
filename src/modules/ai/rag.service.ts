@@ -74,7 +74,7 @@ export interface RetrievedChunk {
 export async function retrieveRelevantChunks(
   question: string,
   scripture?: Scripture,
-  topK = 5
+  topK = 4
 ): Promise<RetrievedChunk[]> {
   const collections = await getCollections(scripture);
   const perCollection = scripture ? topK : Math.ceil(topK / collections.length);
@@ -134,7 +134,8 @@ Constraints:
 - ONLY use information from the provided scripture context
 - NEVER hallucinate verse numbers or content
 - Keep responses focused and grounded — avoid generic spiritual platitudes
-- Cite the scripture reference for every key point you make`;
+- Cite the scripture reference for every key point you make
+- Keep your response under 120 words`;
 }
 
 function buildUserPrompt(
@@ -240,8 +241,8 @@ export async function answerWithRAG(
   try {
     const response = await anthropic.messages.create(
       {
-        model: 'claude-sonnet-4-6',
-        max_tokens: 800,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
         system: buildSystemPrompt(),
         messages: [{ role: 'user', content: userPrompt }],
       },
@@ -315,8 +316,8 @@ export async function answerWithRAGStream(
   try {
     const stream = anthropic.messages.stream(
       {
-        model: 'claude-sonnet-4-6',
-        max_tokens: 800,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
         system: buildSystemPrompt(),
         messages: [{ role: 'user', content: userPrompt }],
       },
