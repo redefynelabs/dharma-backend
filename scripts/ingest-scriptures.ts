@@ -19,7 +19,8 @@ const CHROMA_HOST = process.env.CHROMA_HOST ?? 'localhost';
 const CHROMA_PORT = Number(process.env.CHROMA_PORT ?? 8000);
 
 // Data files live in dharma/data/ relative to the monorepo root
-const DATA_DIR = path.join(__dirname, '..', '..', 'dharma', 'data');
+// const DATA_DIR = path.join(__dirname, '..', '..', 'dharma', 'data');
+const DATA_DIR = path.join(process.cwd(), 'data');
 
 const client = new ChromaClient({ path: `http://${CHROMA_HOST}:${CHROMA_PORT}` });
 const embedFn = new DefaultEmbeddingFunction();
