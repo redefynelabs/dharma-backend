@@ -137,6 +137,84 @@ export async function requireSubscriptionOrFreeQuota(
 }
 
 /**
+ * Commentary quota — 5/day for free users, unlimited for pro.
+ */
+export async function requireCommentaryQuota(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const uid = authReq.user.uid;
+    const db = getFirestore();
+    const userRef = db.collection(COLLECTIONS.USERS).doc(uid);
+
+    const cached = getCachedStatus(uid);
+    let profile: UserProfile | null = null;
+    let tier: 'free' | 'pro';
+    let state: string;
+
+    if (cached) {
+      tier = cached.tier;
+      state = cached.state;
+    } else {
+      const snap = await userRef.get();
+      if (!snap.exists) throw new NotFoundError('User profile');
+      profile = snap.data() as UserProfile;
+      tier = profile.subscription.tier;
+      state = profile.subscription.state;
+      setCachedStatus(uid, tier, state);
+    }
+
+    if (tier === 'pro' && ['active', 'grace_period'].includes(state)) {
+      authReq.commitQuota = async () => {
+        await userRef.update({ lastActiveAt: admin.firestore.FieldValue.serverTimestamp() });
+      };
+      next();
+      return;
+    }
+
+    if (!profile) {
+      const snap = await userRef.get();
+      if (!snap.exists) throw new NotFoundError('User profile');
+      profile = snap.data() as UserProfile;
+    }
+
+    const { stats } = profile;
+    const now = Date.now();
+    const resetAt = stats.dailyCommentaryResetAt?.toMillis?.() ?? 0;
+    const isNewDay = now - resetAt >= 24 * 60 * 60 * 1000;
+    const currentCount = isNewDay ? 0 : (stats.dailyCommentary ?? 0);
+
+    if (currentCount >= env.FREE_DAILY_COMMENTARY) {
+      throw new RateLimitError(
+        `Daily limit of ${env.FREE_DAILY_COMMENTARY} AI commentaries reached. Upgrade to Pro for unlimited access.`
+      );
+    }
+
+    authReq.commitQuota = async () => {
+      if (isNewDay) {
+        await userRef.update({
+          'stats.dailyCommentary': 1,
+          'stats.dailyCommentaryResetAt': admin.firestore.FieldValue.serverTimestamp(),
+          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        await userRef.update({
+          'stats.dailyCommentary': admin.firestore.FieldValue.increment(1),
+          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    };
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * Hard gate — Pro subscription required (no free fallback).
  */
 export async function requireProSubscription(

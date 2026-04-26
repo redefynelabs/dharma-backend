@@ -13,6 +13,7 @@ import { globalErrorHandler } from './utils/response';
 import userRoutes from './modules/users/user.routes';
 import chatRoutes from './modules/chat/chat.routes';
 import subscriptionRoutes from './modules/subscriptions/subscription.routes';
+import verseRoutes from './modules/verses/verse.routes';
 
 const app = express();
 
@@ -67,6 +68,7 @@ const apiRouter = express.Router();
 apiRouter.use('/', userRoutes);              // POST /auth/sync, GET/PATCH/DELETE /users/me
 apiRouter.use('/chat', chatRoutes);          // /chat/sessions/*, /chat/ask
 apiRouter.use('/subscriptions', subscriptionRoutes); // /subscriptions/webhook, /status, /sync, /plans
+apiRouter.use('/verses', verseRoutes);       // POST /verses/commentary
 
 app.use(`/api/${env.API_VERSION}`, apiRouter);
 

@@ -35,6 +35,7 @@ const envSchema = z.object({
 
   // Subscription
   FREE_DAILY_AI_QUERIES: z.coerce.number().default(3),
+  FREE_DAILY_COMMENTARY: z.coerce.number().default(5),
   PRO_MONTHLY_PRODUCT_ID: z.string().default('dharma_pro_monthly'),
   PRO_YEARLY_PRODUCT_ID: z.string().default('dharma_pro_yearly'),
 });

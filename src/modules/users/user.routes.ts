@@ -67,6 +67,11 @@ router.post(
           const elapsed = Date.now() - resetAt;
           return elapsed >= 24 * 60 * 60 * 1000 ? 0 : (profile.stats.dailyAiQueries ?? 0);
         })(),
+        dailyCommentary: (() => {
+          const resetAt = profile.stats.dailyCommentaryResetAt?.toMillis?.() ?? 0;
+          const elapsed = Date.now() - resetAt;
+          return elapsed >= 24 * 60 * 60 * 1000 ? 0 : (profile.stats.dailyCommentary ?? 0);
+        })(),
       },
       isNewUser: !profile.stats.totalChats && !profile.stats.totalAiQueries,
     });
@@ -99,6 +104,11 @@ router.get(
           const resetAt = profile.stats.dailyAiQueriesResetAt?.toMillis?.() ?? 0;
           const elapsed = Date.now() - resetAt;
           return elapsed >= 24 * 60 * 60 * 1000 ? 0 : (profile.stats.dailyAiQueries ?? 0);
+        })(),
+        dailyCommentary: (() => {
+          const resetAt = profile.stats.dailyCommentaryResetAt?.toMillis?.() ?? 0;
+          const elapsed = Date.now() - resetAt;
+          return elapsed >= 24 * 60 * 60 * 1000 ? 0 : (profile.stats.dailyCommentary ?? 0);
         })(),
       },
       createdAt: profile.createdAt,

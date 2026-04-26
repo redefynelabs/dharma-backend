@@ -46,6 +46,8 @@ export interface UserStats {
   totalAiQueries: number;
   dailyAiQueries: number;
   dailyAiQueriesResetAt: FirestoreTimestamp;
+  dailyCommentary: number;
+  dailyCommentaryResetAt: FirestoreTimestamp;
   scriptureSessions: Record<string, number>; // scripture -> session count
 }
 

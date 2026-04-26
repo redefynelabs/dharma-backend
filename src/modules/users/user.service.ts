@@ -60,6 +60,8 @@ export async function getOrCreateUserProfile(
       totalAiQueries: 0,
       dailyAiQueries: 0,
       dailyAiQueriesResetAt: now,
+      dailyCommentary: 0,
+      dailyCommentaryResetAt: now,
       scriptureSessions: {},
     },
     createdAt: now,

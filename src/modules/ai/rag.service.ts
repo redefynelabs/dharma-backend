@@ -354,6 +354,38 @@ export async function answerWithRAGStream(
   }
 }
 
+// ─── Verse Commentary ─────────────────────────────────
+
+export async function generateVerseCommentary(
+  reference: string,
+  sanskrit: string,
+  english: string,
+  scripture: string
+): Promise<{ commentary: string; tokensUsed: number }> {
+  const anthropic = getAnthropicClient();
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 180,
+    messages: [
+      {
+        role: 'user',
+        content: `You are a scholar of Hindu scriptures. Write a spiritual commentary on this ${scripture} verse in under 120 words. Be direct, insightful, and practical — connect the verse to inner life.
+
+Verse: ${reference}
+Sanskrit: ${sanskrit}
+Translation: ${english}
+
+Commentary:`,
+      },
+    ],
+  });
+
+  const block = response.content[0];
+  const commentary = block.type === 'text' ? block.text.trim() : '';
+  const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+  return { commentary, tokensUsed };
+}
+
 // ─── Title Generation ─────────────────────────────────
 
 /**
