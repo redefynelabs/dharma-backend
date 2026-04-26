@@ -20,7 +20,7 @@ const prodFormat = combine(
 );
 
 export const logger = winston.createLogger({
-  level: env.NODE_ENV === 'production' ? 'info' : 'debug',
+  level: env.NODE_ENV === 'production' ? 'http' : 'debug',
   format: env.NODE_ENV === 'production' ? prodFormat : devFormat,
   transports: [new winston.transports.Console()],
   // Never log sensitive fields

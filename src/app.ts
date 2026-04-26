@@ -45,7 +45,7 @@ app.use(compression());
 app.use(
   morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev', {
     stream: { write: (msg) => logger.http(msg.trim()) },
-    skip: (_req, res) => res.statusCode < 400 && env.NODE_ENV === 'production',
+    skip: () => false,
   })
 );
 
