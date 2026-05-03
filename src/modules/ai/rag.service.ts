@@ -242,7 +242,7 @@ export async function answerWithRAG(
     const response = await anthropic.messages.create(
       {
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
+        max_tokens: 350,
         system: buildSystemPrompt(),
         messages: [{ role: 'user', content: userPrompt }],
       },
@@ -317,7 +317,7 @@ export async function answerWithRAGStream(
     const stream = anthropic.messages.stream(
       {
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
+        max_tokens: 350,
         system: buildSystemPrompt(),
         messages: [{ role: 'user', content: userPrompt }],
       },
@@ -365,7 +365,7 @@ export async function generateVerseCommentary(
   const anthropic = getAnthropicClient();
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 180,
+    max_tokens: 350,
     messages: [
       {
         role: 'user',

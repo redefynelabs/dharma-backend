@@ -3,6 +3,7 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { getFirebaseApp } from './config/firebase';
 import { warmupEmbedding, verifyChromaConnection } from './modules/ai/rag.service';
+import { startNotificationScheduler } from './modules/notifications/notification.scheduler';
 
 // ─── Firebase ──────────────────────────────────────���──
 
@@ -60,6 +61,7 @@ async function initAiServices(attempt = 0): Promise<void> {
 }
 
 initAiServices();
+startNotificationScheduler();
 
 // ─── Graceful Shutdown ────────────────────────────────
 

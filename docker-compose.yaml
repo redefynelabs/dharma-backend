@@ -19,7 +19,7 @@ services:
   # ─── Node.js API ──────────────────────────────────────
   app:
     build:
-      context: .page
+      context: .
       target: production
     container_name: dharma-app
     ports:

@@ -13,9 +13,12 @@ import {
   upsertDeviceSession,
   getDeviceSessions,
   removeDeviceSession,
+  addPushToken,
+  removePushToken,
 } from './user.service';
 import { sendSuccess, NotFoundError } from '../../utils/response';
 import { getFirebaseAuth } from '../../config/firebase';
+import { sendWelcomeNotificationIfNeeded } from '../notifications/notification.service';
 
 const router = Router();
 
@@ -157,6 +160,32 @@ router.get(
   authHandler(async (req: AuthenticatedRequest, res: Response) => {
     const devices = await getDeviceSessions(req.user.uid);
     sendSuccess(res, { devices });
+  })
+);
+
+// ─── POST /users/me/push-token ────────────────────────
+const pushTokenSchema = z.object({ token: z.string().min(1).max(512) });
+
+router.post(
+  '/users/me/push-token',
+  requireAuth,
+  authHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { token } = pushTokenSchema.parse(req.body);
+    await addPushToken(req.user.uid, token);
+    // Fire-and-forget — doesn't block the response
+    sendWelcomeNotificationIfNeeded(req.user.uid, token).catch(() => {});
+    sendSuccess(res, { registered: true });
+  })
+);
+
+// ─── DELETE /users/me/push-token ──────────────────────
+router.delete(
+  '/users/me/push-token',
+  requireAuth,
+  authHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { token } = pushTokenSchema.parse(req.body);
+    await removePushToken(req.user.uid, token);
+    sendSuccess(res, { removed: true });
   })
 );
 

@@ -30,6 +30,7 @@ export interface UserProfile {
   subscription: SubscriptionStatus;
   preferences: UserPreferences;
   stats: UserStats;
+  expoPushTokens?: string[];
   createdAt: FirestoreTimestamp;
   updatedAt: FirestoreTimestamp;
   lastActiveAt: FirestoreTimestamp;

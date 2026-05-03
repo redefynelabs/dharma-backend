@@ -99,6 +99,37 @@ export async function updateDisplayName(uid: string, displayName: string): Promi
   });
 }
 
+// ─── Push Tokens ──────────────────────────────────────
+
+const MAX_PUSH_TOKENS = 5;
+
+export async function addPushToken(uid: string, token: string): Promise<void> {
+  const db = getFirestore();
+  const ref = db.collection(COLLECTIONS.USERS).doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+
+  const existing: string[] = snap.data()?.expoPushTokens ?? [];
+  if (existing.includes(token)) return; // already registered
+
+  // Keep only the most recent MAX_PUSH_TOKENS tokens
+  const updated = [...existing, token].slice(-MAX_PUSH_TOKENS);
+  await ref.update({
+    expoPushTokens: updated,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+export async function removePushToken(uid: string, token: string): Promise<void> {
+  await getFirestore()
+    .collection(COLLECTIONS.USERS)
+    .doc(uid)
+    .update({
+      expoPushTokens: admin.firestore.FieldValue.arrayRemove(token),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+}
+
 // ─── Device Sessions ──────────────────────────────────
 
 export async function upsertDeviceSession(

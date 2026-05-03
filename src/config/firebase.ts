@@ -40,4 +40,5 @@ export const COLLECTIONS = {
   CHAT_MESSAGES: (sessionId: string) => `chat_sessions/${sessionId}/messages`,
   DEVICE_SESSIONS: (uid: string) => `users/${uid}/devices`,
   SUBSCRIPTION_EVENTS: 'subscription_events', // webhook audit log
+  VERSE_COMMENTARIES: 'verse_commentaries',   // cached AI commentary per verse
 } as const;
