@@ -190,6 +190,11 @@ router.post(
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
+    // Abort controller wired to client disconnect — lets us cancel the
+    // Anthropic stream mid-flight when the user taps Stop.
+    const clientAbort = new AbortController();
+    req.on('close', () => clientAbort.abort());
+
     try {
       // ── Phase 1: validate + save user message ──────────────────────
       const session = await getChatSession(sessionId, req.user.uid);
@@ -250,7 +255,8 @@ router.post(
           writeEvent({ type: 'done', message: assistantMessage, sources: result.sources });
           res.end();
         },
-        preloadedChunks
+        preloadedChunks,
+        clientAbort.signal
       );
     } catch (err: any) {
       if (!sseOpen) {

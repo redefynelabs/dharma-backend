@@ -291,7 +291,8 @@ export async function answerWithRAGStream(
   query: RAGQuery,
   onChunk: (text: string) => void,
   onDone: (result: RAGResult) => Promise<void>,
-  preloadedChunks?: RetrievedChunk[]
+  preloadedChunks?: RetrievedChunk[],
+  abortSignal?: AbortSignal
 ): Promise<void> {
   const startTime = Date.now();
 
@@ -310,6 +311,19 @@ export async function answerWithRAGStream(
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ANTHROPIC_TIMEOUT_MS);
+
+  // If the caller provides an abort signal (e.g. client disconnect), wire it up.
+  let clientAborted = false;
+  if (abortSignal) {
+    if (abortSignal.aborted) {
+      clearTimeout(timeoutId);
+      return;
+    }
+    abortSignal.addEventListener('abort', () => {
+      clientAborted = true;
+      controller.abort();
+    }, { once: true });
+  }
 
   let fullAnswer = '';
 
@@ -347,6 +361,8 @@ export async function answerWithRAGStream(
     await onDone({ answer: fullAnswer, sources, tokensUsed, processingMs });
   } catch (err: any) {
     clearTimeout(timeoutId);
+    // Client disconnected — abort cleanly, no error to propagate
+    if (clientAborted) return;
     if (controller.signal.aborted) {
       throw new Error('AI response timed out. Please try again.');
     }
