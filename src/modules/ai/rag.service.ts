@@ -246,7 +246,7 @@ export async function answerWithRAG(
     const response = await client.chat.completions.create(
       {
         model: OPENROUTER_MODEL,
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [
           { role: 'system', content: buildSystemPrompt() },
           { role: 'user', content: userPrompt },
@@ -337,7 +337,7 @@ export async function answerWithRAGStream(
     const stream = await client.chat.completions.create(
       {
         model: OPENROUTER_MODEL,
-        max_tokens: 1024,
+        max_tokens: 2048,
         stream: true,
         stream_options: { include_usage: true },
         messages: [
@@ -395,7 +395,7 @@ export async function generateVerseCommentary(
   const client = getOpenRouterClient();
   const response = await client.chat.completions.create({
     model: OPENROUTER_MODEL,
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [
       {
         role: 'user',
