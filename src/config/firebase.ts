@@ -41,4 +41,5 @@ export const COLLECTIONS = {
   DEVICE_SESSIONS: (uid: string) => `users/${uid}/devices`,
   SUBSCRIPTION_EVENTS: 'subscription_events', // webhook audit log
   VERSE_COMMENTARIES: 'verse_commentaries',   // cached AI commentary per verse
+  DEVICE_QUOTAS: 'device_quotas',             // cross-account daily quota per device
 } as const;

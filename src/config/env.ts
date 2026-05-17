@@ -19,7 +19,10 @@ const envSchema = z.object({
   REVENUECAT_WEBHOOK_SECRET: z.string().min(1),
 
   // Anthropic
-  ANTHROPIC_API_KEY: z.string().min(1),
+  ANTHROPIC_API_KEY: z.string().optional(),
+
+  // OpenRouter
+  OPENROUTER_API_KEY: z.string().min(1),
 
   // ChromaDB
   CHROMA_HOST: z.string().default('localhost'),
@@ -34,8 +37,8 @@ const envSchema = z.object({
   AI_RATE_LIMIT_MAX: z.coerce.number().default(20),
 
   // Subscription
-  FREE_DAILY_AI_QUERIES: z.coerce.number().default(3),
-  FREE_DAILY_COMMENTARY: z.coerce.number().default(5),
+  FREE_DAILY_AI_QUERIES: z.coerce.number().default(10),
+  FREE_DAILY_COMMENTARY: z.coerce.number().default(10),
   PRO_MONTHLY_PRODUCT_ID: z.string().default('dharma_pro_monthly'),
   PRO_YEARLY_PRODUCT_ID: z.string().default('dharma_pro_yearly'),
 });

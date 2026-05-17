@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { ChromaClient, Collection, IncludeEnum, DefaultEmbeddingFunction } from 'chromadb';
 import { env } from '../../config/env';
 import {
@@ -13,8 +13,10 @@ import { logger } from '../../config/logger';
 
 // ─── Client Singletons ────────────────────────────────
 
+const OPENROUTER_MODEL = 'qwen/qwen-2.5-7b-instruct';
+
 let chromaClient: ChromaClient;
-let anthropicClient: Anthropic;
+let openRouterClient: OpenAI;
 let embedFn: DefaultEmbeddingFunction;
 
 function getChromaClient(): ChromaClient {
@@ -31,11 +33,14 @@ function getEmbedFn(): DefaultEmbeddingFunction {
   return embedFn;
 }
 
-function getAnthropicClient(): Anthropic {
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+function getOpenRouterClient(): OpenAI {
+  if (!openRouterClient) {
+    openRouterClient = new OpenAI({
+      apiKey: env.OPENROUTER_API_KEY,
+      baseURL: 'https://openrouter.ai/api/v1',
+    });
   }
-  return anthropicClient;
+  return openRouterClient;
 }
 
 // ─── Collection Mapping ───────────────────────────────
@@ -134,8 +139,7 @@ Constraints:
 - ONLY use information from the provided scripture context
 - NEVER hallucinate verse numbers or content
 - Keep responses focused and grounded — avoid generic spiritual platitudes
-- Cite the scripture reference for every key point you make
-- Keep your response under 120 words`;
+- Cite the scripture reference for every key point you make`;
 }
 
 function buildUserPrompt(
@@ -233,29 +237,30 @@ export async function answerWithRAG(
   }
 
   const userPrompt = buildUserPrompt(query.question, chunks, query.sessionHistory ?? []);
-  const anthropic = getAnthropicClient();
+  const client = getOpenRouterClient();
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ANTHROPIC_TIMEOUT_MS);
 
   try {
-    const response = await anthropic.messages.create(
+    const response = await client.chat.completions.create(
       {
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 350,
-        system: buildSystemPrompt(),
-        messages: [{ role: 'user', content: userPrompt }],
+        model: OPENROUTER_MODEL,
+        max_tokens: 1024,
+        messages: [
+          { role: 'system', content: buildSystemPrompt() },
+          { role: 'user', content: userPrompt },
+        ],
       },
       { signal: controller.signal }
     );
 
     clearTimeout(timeoutId);
 
-    const answerBlock = response.content.find((b) => b.type === 'text');
-    const answer = answerBlock?.type === 'text' ? answerBlock.text : '';
+    const answer = response.choices[0]?.message?.content ?? '';
     const sources = mapSources(chunks);
     const processingMs = Date.now() - startTime;
-    const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+    const tokensUsed = (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0);
 
     logger.debug('RAG query completed', {
       uid: query.uid,
@@ -307,7 +312,7 @@ export async function answerWithRAGStream(
   }
 
   const userPrompt = buildUserPrompt(query.question, chunks, query.sessionHistory ?? []);
-  const anthropic = getAnthropicClient();
+  const client = getOpenRouterClient();
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ANTHROPIC_TIMEOUT_MS);
@@ -326,27 +331,36 @@ export async function answerWithRAGStream(
   }
 
   let fullAnswer = '';
+  let tokensUsed = 0;
 
   try {
-    const stream = anthropic.messages.stream(
+    const stream = await client.chat.completions.create(
       {
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 350,
-        system: buildSystemPrompt(),
-        messages: [{ role: 'user', content: userPrompt }],
+        model: OPENROUTER_MODEL,
+        max_tokens: 1024,
+        stream: true,
+        stream_options: { include_usage: true },
+        messages: [
+          { role: 'system', content: buildSystemPrompt() },
+          { role: 'user', content: userPrompt },
+        ],
       },
       { signal: controller.signal }
     );
 
-    stream.on('text', (text) => {
-      onChunk(text);
-      fullAnswer += text;
-    });
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content ?? '';
+      if (text) {
+        onChunk(text);
+        fullAnswer += text;
+      }
+      if (chunk.usage) {
+        tokensUsed = (chunk.usage.prompt_tokens ?? 0) + (chunk.usage.completion_tokens ?? 0);
+      }
+    }
 
-    const finalMessage = await stream.finalMessage();
     clearTimeout(timeoutId);
 
-    const tokensUsed = finalMessage.usage.input_tokens + finalMessage.usage.output_tokens;
     const sources = mapSources(chunks);
     const processingMs = Date.now() - startTime;
 
@@ -378,14 +392,14 @@ export async function generateVerseCommentary(
   english: string,
   scripture: string
 ): Promise<{ commentary: string; tokensUsed: number }> {
-  const anthropic = getAnthropicClient();
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 350,
+  const client = getOpenRouterClient();
+  const response = await client.chat.completions.create({
+    model: OPENROUTER_MODEL,
+    max_tokens: 1024,
     messages: [
       {
         role: 'user',
-        content: `You are a scholar of Hindu scriptures. Write a spiritual commentary on this ${scripture} verse in under 120 words. Be direct, insightful, and practical — connect the verse to inner life.
+        content: `You are a scholar of Hindu scriptures. Write a spiritual commentary on this ${scripture} verse. Be direct, insightful, and practical — connect the verse to inner life.
 
 Verse: ${reference}
 Sanskrit: ${sanskrit}
@@ -396,9 +410,8 @@ Commentary:`,
     ],
   });
 
-  const block = response.content[0];
-  const commentary = block.type === 'text' ? block.text.trim() : '';
-  const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+  const commentary = response.choices[0]?.message?.content?.trim() ?? '';
+  const tokensUsed = (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0);
   return { commentary, tokensUsed };
 }
 
@@ -410,9 +423,9 @@ Commentary:`,
  */
 export async function generateSessionTitle(firstMessage: string): Promise<string> {
   try {
-    const anthropic = getAnthropicClient();
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5',
+    const client = getOpenRouterClient();
+    const response = await client.chat.completions.create({
+      model: OPENROUTER_MODEL,
       max_tokens: 30,
       messages: [
         {
@@ -422,8 +435,7 @@ export async function generateSessionTitle(firstMessage: string): Promise<string
       ],
     });
 
-    const block = response.content[0];
-    return block.type === 'text' ? block.text.trim() : 'Spiritual Guidance';
+    return response.choices[0]?.message?.content?.trim() || 'Spiritual Guidance';
   } catch {
     return 'Spiritual Guidance';
   }

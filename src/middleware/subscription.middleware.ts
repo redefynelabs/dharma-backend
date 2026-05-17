@@ -111,23 +111,51 @@ export async function requireSubscriptionOrFreeQuota(
       );
     }
 
+    // ── Step 3b: device-level quota — blocks multi-account abuse ──────────
+    const deviceId = req.headers['x-device-id'] as string | undefined;
+    let deviceIsNewDay = false;
+    let deviceRef: admin.firestore.DocumentReference | null = null;
+
+    if (deviceId) {
+      deviceRef = db.collection(COLLECTIONS.DEVICE_QUOTAS).doc(deviceId);
+      const deviceSnap = await deviceRef.get();
+      const deviceData = deviceSnap.data() ?? {};
+      const deviceResetAt = deviceData.dailyAiQueriesResetAt?.toMillis?.() ?? 0;
+      deviceIsNewDay = now - deviceResetAt >= 24 * 60 * 60 * 1000;
+      const deviceCount = deviceIsNewDay ? 0 : (deviceData.dailyAiQueries ?? 0);
+
+      if (deviceCount >= env.FREE_DAILY_AI_QUERIES) {
+        throw new RateLimitError(
+          `Daily limit of ${env.FREE_DAILY_AI_QUERIES} AI queries reached. Upgrade to Pro for unlimited access.`
+        );
+      }
+    }
+
     // ── Step 4: attach commit — called only after successful AI response ──
     authReq.commitQuota = async () => {
-      if (isNewDay) {
-        // New calendar day: reset counter to 1 (this query)
-        await userRef.update({
-          'stats.dailyAiQueries': 1,
-          'stats.dailyAiQueriesResetAt': admin.firestore.FieldValue.serverTimestamp(),
-          'stats.totalAiQueries': admin.firestore.FieldValue.increment(1),
-          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } else {
-        await userRef.update({
-          'stats.dailyAiQueries': admin.firestore.FieldValue.increment(1),
-          'stats.totalAiQueries': admin.firestore.FieldValue.increment(1),
-          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      const userUpdate = isNewDay
+        ? {
+            'stats.dailyAiQueries': 1,
+            'stats.dailyAiQueriesResetAt': admin.firestore.FieldValue.serverTimestamp(),
+            'stats.totalAiQueries': admin.firestore.FieldValue.increment(1),
+            lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+          }
+        : {
+            'stats.dailyAiQueries': admin.firestore.FieldValue.increment(1),
+            'stats.totalAiQueries': admin.firestore.FieldValue.increment(1),
+            lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+
+      const ops: Promise<any>[] = [userRef.update(userUpdate)];
+
+      if (deviceRef) {
+        const deviceUpdate = deviceIsNewDay
+          ? { dailyAiQueries: 1, dailyAiQueriesResetAt: admin.firestore.FieldValue.serverTimestamp() }
+          : { dailyAiQueries: admin.firestore.FieldValue.increment(1) };
+        ops.push(deviceRef.set(deviceUpdate, { merge: true }));
       }
+
+      await Promise.all(ops);
     };
 
     next();
@@ -193,19 +221,48 @@ export async function requireCommentaryQuota(
       );
     }
 
-    authReq.commitQuota = async () => {
-      if (isNewDay) {
-        await userRef.update({
-          'stats.dailyCommentary': 1,
-          'stats.dailyCommentaryResetAt': admin.firestore.FieldValue.serverTimestamp(),
-          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } else {
-        await userRef.update({
-          'stats.dailyCommentary': admin.firestore.FieldValue.increment(1),
-          lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+    // ── Device-level commentary quota ─────────────────────────────────────
+    const deviceId = req.headers['x-device-id'] as string | undefined;
+    let deviceIsNewDay = false;
+    let deviceRef: admin.firestore.DocumentReference | null = null;
+
+    if (deviceId) {
+      deviceRef = db.collection(COLLECTIONS.DEVICE_QUOTAS).doc(deviceId);
+      const deviceSnap = await deviceRef.get();
+      const deviceData = deviceSnap.data() ?? {};
+      const deviceResetAt = deviceData.dailyCommentaryResetAt?.toMillis?.() ?? 0;
+      deviceIsNewDay = now - deviceResetAt >= 24 * 60 * 60 * 1000;
+      const deviceCount = deviceIsNewDay ? 0 : (deviceData.dailyCommentary ?? 0);
+
+      if (deviceCount >= env.FREE_DAILY_COMMENTARY) {
+        throw new RateLimitError(
+          `Daily limit of ${env.FREE_DAILY_COMMENTARY} AI commentaries reached. Upgrade to Pro for unlimited access.`
+        );
       }
+    }
+
+    authReq.commitQuota = async () => {
+      const userUpdate = isNewDay
+        ? {
+            'stats.dailyCommentary': 1,
+            'stats.dailyCommentaryResetAt': admin.firestore.FieldValue.serverTimestamp(),
+            lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+          }
+        : {
+            'stats.dailyCommentary': admin.firestore.FieldValue.increment(1),
+            lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+
+      const ops: Promise<any>[] = [userRef.update(userUpdate)];
+
+      if (deviceRef) {
+        const deviceUpdate = deviceIsNewDay
+          ? { dailyCommentary: 1, dailyCommentaryResetAt: admin.firestore.FieldValue.serverTimestamp() }
+          : { dailyCommentary: admin.firestore.FieldValue.increment(1) };
+        ops.push(deviceRef.set(deviceUpdate, { merge: true }));
+      }
+
+      await Promise.all(ops);
     };
 
     next();

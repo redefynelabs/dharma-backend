@@ -97,7 +97,7 @@ router.get(
 
 // ─── POST /chat/sessions/:sessionId/ask ───────────────
 const askSchema = z.object({
-  question: z.string().min(3).max(1000),
+  question: z.string().min(1),
   scripture: z.enum(['gita', 'ramayana', 'mahabharata']).optional(),
 });
 
